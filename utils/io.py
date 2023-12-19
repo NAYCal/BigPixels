@@ -5,11 +5,12 @@ import numpy as np
 from PIL import Image
 from torchvision import transforms
 
+IMAGE_FILE_TYPES = (".jpg", ".jpeg", ".png", ".bmp", ".tiff")
 
 def read_image(file_name, directory_path="data", data_format="torch", out_size=None):
     assert file_name.lower().endswith(
-        (".jpg", ".jpeg", ".png", ".bmp")
-    ), "File name must end with '.jpg', '.jpeg', '.png', '.bmp'"
+        IMAGE_FILE_TYPES
+    ), f"File name must end with one of the following: {IMAGE_FILE_TYPES}"
     assert data_format.lower() in {"torch", "numpy", "pil"}
 
     image_path = os.path.join(directory_path, file_name)
@@ -48,8 +49,8 @@ def read_all_images(directory_path="data", data_format="torch", out_size=None):
 
 def save_image(img_rep, file_name, directory_path="out", out_size=None):
     assert file_name.lower().endswith(
-        (".jpg", ".jpeg", ".png", ".bmp")
-    ), "File name must end with '.jpg', '.jpeg', '.png', '.bmp'"
+        IMAGE_FILE_TYPES
+    ), f"File name must end with one of the following: {IMAGE_FILE_TYPES}"
     os.makedirs(directory_path, exist_ok=True)
     save_path = os.path.join(directory_path, file_name)
 
