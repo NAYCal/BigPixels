@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 from torchvision import transforms
 
-IMAGE_FILE_TYPES = (".jpg", ".jpeg", ".png", ".bmp", ".tiff")
+IMAGE_FILE_TYPES = (".jpg", ".jpeg", ".png", ".bmp", ".tif")
 
 def read_image(file_name, directory_path="data", data_format="torch", out_size=None):
     assert file_name.lower().endswith(
