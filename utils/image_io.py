@@ -35,14 +35,14 @@ def read_all_images(directory_path="data", data_format="torch", out_size=None):
     file_names = []
     for root, _, files in os.walk(directory_path):
         for file in files:
-            if file.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".gif")):
+            if file.lower().endswith(IMAGE_FILE_TYPES):
                 image_path = os.path.join(root, file)
                 image_paths.append(image_path)
                 file_names.append(file)
 
     images = []
     for image_path in image_paths:
-        images.append(read_image(file_names, data_format=data_format, out_size=out_size))
+        images.append(read_image(image_path, "", data_format=data_format, out_size=out_size))
 
     return images, file_names
 
