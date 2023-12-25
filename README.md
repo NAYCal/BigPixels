@@ -1,0 +1,2 @@
+# Overview
+This project aims to provide functionalities to perform some computater vision/computational photography functions. Although it is true that some of these functions are better optimized by the OpenCV library, this repository attempts to offer other functions not offered. 

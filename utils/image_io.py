@@ -7,14 +7,18 @@ from torchvision import transforms
 
 IMAGE_FILE_TYPES = (".jpg", ".jpeg", ".png", ".bmp", ".tif")
 
-def read_image(file_name, directory_path="data", data_format="torch", out_size=None):
+def read_image(file_name, directory_path="data", data_format="torch", out_size=None, grayscale=False):
     assert file_name.lower().endswith(
         IMAGE_FILE_TYPES
     ), f"File name must end with one of the following: {IMAGE_FILE_TYPES}"
     assert data_format.lower() in {"torch", "numpy", "pil"}
 
-    image_path = os.path.join(directory_path, file_name)
+    parent_directory = os.path.dirname(os.getcwd())
+    image_path = os.path.join(parent_directory, directory_path, file_name)
     image = Image.open(image_path)
+
+    if grayscale:
+        image = image.convert('L')
 
     if out_size is not None:
         image = image.resize(out_size)
