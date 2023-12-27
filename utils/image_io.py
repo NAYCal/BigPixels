@@ -11,12 +11,12 @@ def read_image(file_name, directory_path="data", data_format="torch", out_size=N
     assert file_name.lower().endswith(
         IMAGE_FILE_TYPES
     ), f"File name must end with one of the following: {IMAGE_FILE_TYPES}"
-    assert data_format.lower() in {"tensor", "torch", "numpy", "pil"}, "Data format must be valid!"
+    assert data_format.lower() in {"tensor", "torch", "numpy", "np", "pil", "pillow"}, "Data format must be valid!"
 
     parent_directory = os.path.dirname(os.getcwd())
     image_path = os.path.join(parent_directory, directory_path, file_name)
-    image = Image.open(image_path)
-
+    image = adjust_pillow_image(Image.open(image_path))
+    
     if grayscale:
         image = image.convert('L')
 
@@ -26,9 +26,9 @@ def read_image(file_name, directory_path="data", data_format="torch", out_size=N
     match data_format.lower():
         case "torch" | "tensor":
             converted_image = transforms.ToTensor()(image)
-        case "numpy":
+        case "numpy" | "np":
             converted_image = normalize_image(np.array(image).astype(np.float32))
-        case "pil":
+        case "pil" | "pillow":
             converted_image = image
 
     return converted_image
@@ -84,3 +84,19 @@ def normalize_image(image):
     max_val = image.max()
 
     return (image - min_val) / (max_val - min_val)
+
+def adjust_pillow_image(image):
+    exif = image._getexif()
+    if exif:
+        orientation_tag = 274
+        if orientation_tag in exif:
+            orientation = exif[orientation_tag]
+
+            if orientation == 3: 
+                image = image.rotate(180)
+            elif orientation == 6:
+                image = image.rotate(-90, expand=True)
+            elif orientation == 8:
+                image = image.rotate(90, expand=True)
+
+    return image

@@ -133,3 +133,15 @@ def tensor_finite_difference(
     return normalize_image(
         (derived > threshold).to(torch.float32) if threshold else derived
     )
+
+def image_sharpening(image, ksize=3, ksigma=2):
+    match type(image):
+        case np.ndarray:
+            gaussian_kernel = numpy_gaussian_kernel(ksize=ksize, ksigma=ksigma)
+        case torch.Tensor:
+            gaussian_kernel = tensor_gaussian_kernel(ksize=ksize, ksigma=ksigma)
+        case _:
+            raise TypeError("Image type not supported!")
+
+    low_freq = convolve2d(image, gaussian_kernel, mode="same", boundary="fill", fillvalue=0)
+    return normalize_image(image - low_freq)
