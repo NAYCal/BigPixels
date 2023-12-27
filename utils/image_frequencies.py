@@ -1,11 +1,11 @@
 import torch
 import numpy as np
 
-from image_math import numpy_gaussian_kernel, tensor_gaussian_kernel
 from scipy.signal import convolve2d
 from torch.nn.functional import conv2d
+from image_io import normalize_image
+from image_math import numpy_gaussian_kernel, tensor_gaussian_kernel
 
-# I had just realized this could be done in torch then convert to numpy
 def numpy_finite_difference(
     image, reduce_noise=True, out_grayscale=True, threshold=None
 ):
@@ -25,7 +25,7 @@ def numpy_finite_difference(
             image_dx = cov(image, dx)
             image_dy = cov(image, dy)
             derived = np.sqrt((image_dx**2) + (image_dy**2))
-            return (derived > threshold).astype(np.float32) if threshold else derived
+            return normalize_image((derived > threshold).astype(np.float32) if threshold else derived)
         case 3:
             channels = []
             for d in range(3):
@@ -35,7 +35,7 @@ def numpy_finite_difference(
 
             derived = np.stack(channels, axis=-1)
             derived = np.mean(derived, axis=2) if out_grayscale else derived
-            return (derived > threshold).astype(np.float32) if threshold else derived
+            return normalize_image((derived > threshold).astype(np.float32) if threshold else derived)
         case 4:
             diff_images = [
                 numpy_finite_difference(img, reduce_noise, out_grayscale, threshold)
@@ -80,4 +80,4 @@ def tensor_finite_difference(
     if channel_dim is not None and out_grayscale:
         derived = torch.mean(derived, dim=channel_dim)
     
-    return (derived > threshold).to(torch.float32) if threshold else derived
+    return normalize_image((derived > threshold).to(torch.float32) if threshold else derived)
