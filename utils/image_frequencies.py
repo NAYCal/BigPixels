@@ -8,7 +8,13 @@ from image_math import numpy_gaussian_kernel, tensor_gaussian_kernel
 
 
 def finite_difference(
-    image, reduce_noise=True, out_grayscale=True, threshold=None, device="cpu"
+    image,
+    reduce_noise=True,
+    out_grayscale=True,
+    threshold=None,
+    ksize=3,
+    ksigma=2,
+    device="cpu",
 ):
     match type(image):
         case np.ndarray:
@@ -16,6 +22,8 @@ def finite_difference(
                 image,
                 reduce_noise=reduce_noise,
                 out_grayscale=out_grayscale,
+                ksize=ksize,
+                ksigma=ksigma,
                 threshold=threshold,
             )
         case torch.Tensor:
@@ -23,6 +31,8 @@ def finite_difference(
                 image,
                 reduce_noise=reduce_noise,
                 out_grayscale=out_grayscale,
+                ksize=ksize,
+                ksigma=ksigma,
                 threshold=threshold,
                 device=device,
             )
@@ -31,7 +41,7 @@ def finite_difference(
 
 
 def numpy_finite_difference(
-    image, reduce_noise=True, out_grayscale=True, threshold=None
+    image, reduce_noise=True, out_grayscale=True, ksize=3, ksigma=2, threshold=None
 ):
     cov = lambda img, kernel: convolve2d(
         img, kernel, mode="same", boundary="fill", fillvalue=0
@@ -40,7 +50,7 @@ def numpy_finite_difference(
     dx = np.array([[1, 0, -1]])
     dy = dx.T
     if reduce_noise:
-        gaussian_kernel = numpy_gaussian_kernel()
+        gaussian_kernel = numpy_gaussian_kernel(ksize=ksize, ksigma=ksigma)
         dx = cov(dx, gaussian_kernel)
         dy = cov(dy, gaussian_kernel)
 
@@ -75,7 +85,13 @@ def numpy_finite_difference(
 
 
 def tensor_finite_difference(
-    image, reduce_noise=True, out_grayscale=True, threshold=None, device="cpu"
+    image,
+    reduce_noise=True,
+    out_grayscale=True,
+    ksize=3,
+    ksigma=2,
+    threshold=None,
+    device="cpu",
 ):
     original_shape = image.shape
     image = image.to(device)
@@ -83,7 +99,10 @@ def tensor_finite_difference(
     dy = torch.tensor([[[[-1], [0], [1]]]], dtype=torch.float, device=device)
     if reduce_noise:
         gaussian_kernel = (
-            tensor_gaussian_kernel().unsqueeze(0).unsqueeze(0).to(device=device)
+            tensor_gaussian_kernel(ksize=ksize, ksigma=ksigma)
+            .unsqueeze(0)
+            .unsqueeze(0)
+            .to(device=device)
         )
         dx = conv2d(dx, gaussian_kernel, padding="same")
         dy = conv2d(dy, gaussian_kernel, padding="same")
