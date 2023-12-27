@@ -11,7 +11,7 @@ def read_image(file_name, directory_path="data", data_format="torch", out_size=N
     assert file_name.lower().endswith(
         IMAGE_FILE_TYPES
     ), f"File name must end with one of the following: {IMAGE_FILE_TYPES}"
-    assert data_format.lower() in {"torch", "numpy", "pil"}
+    assert data_format.lower() in {"tensor", "torch", "numpy", "pil"}, "Data format must be valid!"
 
     parent_directory = os.path.dirname(os.getcwd())
     image_path = os.path.join(parent_directory, directory_path, file_name)
@@ -24,7 +24,7 @@ def read_image(file_name, directory_path="data", data_format="torch", out_size=N
         image = image.resize(out_size)
 
     match data_format.lower():
-        case "torch":
+        case "torch" | "tensor":
             converted_image = transforms.ToTensor()(image)
         case "numpy":
             converted_image = normalize_image(np.array(image).astype(np.float32))

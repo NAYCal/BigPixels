@@ -5,22 +5,20 @@ from image_math import numpy_gaussian_kernel, tensor_gaussian_kernel
 from scipy.signal import convolve2d
 from torch.nn.functional import conv2d
 
-
-# TODO: Add thresholding
+# I had just realized this could be done in torch then convert to numpy
 def numpy_finite_difference(
     image, reduce_noise=True, out_grayscale=True, threshold=None
 ):
-    dx = np.array([[1, 0, -1]])
-    dy = dx.T
-
-    if reduce_noise:
-        gaussian_kernel = numpy_gaussian_kernel()
-        dx = convolve2d(dx, gaussian_kernel)
-        dy = convolve2d(dy, gaussian_kernel)
-
     cov = lambda img, kernel: convolve2d(
         img, kernel, mode="same", boundary="fill", fillvalue=0
     )
+    
+    dx = np.array([[1, 0, -1]])
+    dy = dx.T
+    if reduce_noise:
+        gaussian_kernel = numpy_gaussian_kernel()
+        dx = cov(dx, gaussian_kernel)
+        dy = cov(dy, gaussian_kernel)
 
     match len(image.shape):
         case 2:
@@ -46,3 +44,40 @@ def numpy_finite_difference(
             return diff_images
         case _:
             raise ValueError("Image must be a 2D object!")
+
+def tensor_finite_difference(
+    image, reduce_noise=True, out_grayscale=True, threshold=None, device='cpu'
+):
+    original_shape = image.shape
+    image = image.to(device)
+    dx = torch.tensor([[[[-1, 0, 1]]]], dtype=torch.float, device=device)
+    dy = torch.tensor([[[[-1], [0], [1]]]], dtype=torch.float, device=device)
+    if reduce_noise:
+        gaussian_kernel = tensor_gaussian_kernel().unsqueeze(0).unsqueeze(0).to(device=device)
+        dx = conv2d(dx, gaussian_kernel, padding='same')
+        dy = conv2d(dy, gaussian_kernel, padding='same')
+    
+    channel_dim = None
+    match len(image.shape):
+        case 2:
+            height, width = image.shape
+            image = image.unsqueeze(0).unsqueeze(0)
+        case 3:
+            channel_dim = 0
+            height, width = image.shape[1:]
+            image = image.reshape(-1, 1, height, width)
+        case 4:
+            channel_dim = 1
+            height, width = image.shape[2:]
+        case _:
+            raise ValueError("Image must be a 2D object!")
+    
+    image_dx = conv2d(image, dx, padding='same')
+    image_dy = conv2d(image, dy, padding='same')
+    derived = torch.sqrt(image_dx**2 + image_dy**2)
+    derived = derived.view(original_shape)
+    
+    if channel_dim is not None and out_grayscale:
+        derived = torch.mean(derived, dim=channel_dim)
+    
+    return (derived > threshold).to(torch.float32) if threshold else derived
