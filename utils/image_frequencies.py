@@ -202,7 +202,7 @@ def tensor_image_blurr(image, ksize=3, ksigma=2, device="cpu"):
     return normalize_image(conv2d(image, kernel, padding="same").view(original_shape))
 
 
-def image_sharpen(image, alpha=0.5, ksize=3, ksigma=2, device="cpu"):
+def image_sharpen(image, alpha=1, ksize=3, ksigma=2, device="cpu"):
     match type(image):
         case np.ndarray:
             return numpy_image_sharpen(image, alpha=alpha, ksize=ksize, ksigma=ksigma)
@@ -214,7 +214,7 @@ def image_sharpen(image, alpha=0.5, ksize=3, ksigma=2, device="cpu"):
             raise TypeError("Image type not supported!")
 
 
-def numpy_image_sharpen(image, alpha=0.5, ksize=3, ksigma=2):
+def numpy_image_sharpen(image, alpha=1, ksize=3, ksigma=2):
     gaussian_kernel = numpy_gaussian_kernel(ksize=ksize, ksigma=ksigma)
     center_y, center_x = gaussian_kernel.shape[0] // 2, gaussian_kernel.shape[1] // 2
     unit_impulse = np.zeros_like(gaussian_kernel)
@@ -245,7 +245,7 @@ def numpy_image_sharpen(image, alpha=0.5, ksize=3, ksigma=2):
             raise ValueError("Image must be a 2D object!")
 
 
-def tensor_image_sharpen(image, alpha=0.5, ksize=3, ksigma=2, device="cpu"):
+def tensor_image_sharpen(image, alpha=1, ksize=3, ksigma=2, device="cpu"):
     image = image.to(device)
     original_shape = image.shape
 
