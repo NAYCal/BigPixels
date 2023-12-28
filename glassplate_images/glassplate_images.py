@@ -24,7 +24,7 @@ class GlassPlateImages:
         self.red_channel = (
             gp_image[channel_height * 2 :]
             if height % 3 == 0
-            else gp_image[channel_height * 2 : -1]
+            else gp_image[channel_height * 2 : -(height % 3)]
         )
 
         self.base_channel = base_channel
@@ -35,30 +35,30 @@ class GlassPlateImages:
         self.red_channel = self.red_channel[20:-20, 20:-20]
         self.green_channel = self.green_channel[20:-20, 20:-20]
 
-    def align(self):
+    def align(self, x_range=30, y_range=30):
         match self.base_channel:
             case "red":
                 red_channel = self.red_channel
                 green_channel, _ = pyramid_alignment(
-                    self.red_channel, self.green_channel
+                    self.red_channel, self.green_channel, x_range, y_range
                 )
                 blue_channel, _ = pyramid_alignment(
-                    self.red_channel, self.blue_channel
+                    self.red_channel, self.blue_channel, x_range, y_range
                 )
             case "blue":
                 red_channel, _ = pyramid_alignment(
-                    self.blue_channel, self.red_channel
+                    self.blue_channel, self.red_channel, x_range, y_range
                 )
                 green_channel, _ = pyramid_alignment(
-                    self.blue_channel, self.green_channel
+                    self.blue_channel, self.green_channel, x_range, y_range
                 )
                 blue_channel = self.blue_channel
             case _:
                 red_channel, _ = pyramid_alignment(
-                    self.green_channel, self.red_channel
+                    self.green_channel, self.red_channel, x_range, y_range
                 )
                 blue_channel, _ = pyramid_alignment(
-                    self.green_channel, self.blue_channel
+                    self.green_channel, self.blue_channel, x_range, y_range
                 )
                 green_channel = self.green_channel
 
@@ -97,9 +97,9 @@ def pyramid_alignment(
     resized_target = signal.convolve2d(target, gaussian_kernel, mode="same")[::2, ::2]
 
     _, best_offset = pyramid_alignment(
-        resized_base, resized_target, x_range, y_range, min_size - 1, gaussian_kernel
+        resized_base, resized_target, x_range, y_range, min_size, gaussian_kernel
     )
-    
+
     best_offset_x, best_offset_y = best_offset[0] * 2, best_offset[1] * 2
     best_target = np.roll(target, (best_offset_x, best_offset_y), (1, 0))
     return exhausive_alignment(base, best_target, x_range, y_range)

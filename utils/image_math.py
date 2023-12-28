@@ -3,22 +3,22 @@ import numpy as np
 import torch.nn.functional as F
 
 
-def numpy_gaussian_kernel(size=3, sigma=(3 - 1) / 6):
+def numpy_gaussian_kernel(ksize=3, ksigma=2):
     kernel = np.fromfunction(
-        lambda x, y: (1 / (2 * np.pi * sigma**2))
-        * np.exp(-((x - (size // 2)) ** 2 + (y - (size // 2)) ** 2) / (2 * sigma**2)),
-        (size, size),
+        lambda x, y: (1 / (2 * np.pi * ksigma**2))
+        * np.exp(-((x - (ksize // 2)) ** 2 + (y - (ksize // 2)) ** 2) / (2 * ksigma**2)),
+        (ksize, ksize),
     )
     return kernel / np.sum(kernel)
 
 
-def tensor_gaussian_kernel(size=3, sigma=(3 - 1) / 6):
-    x, y = torch.meshgrid(torch.arange(size), torch.arange(size), indexing="ij")
-    x_centered = x - size // 2
-    y_centered = y - size // 2
+def tensor_gaussian_kernel(ksize=3, ksigma=2):
+    x, y = torch.meshgrid(torch.arange(ksize), torch.arange(ksize), indexing="ij")
+    x_centered = x - ksize // 2
+    y_centered = y - ksize // 2
 
-    kernel = (1 / (2 * torch.pi * sigma**2)) * torch.exp(
-        -(x_centered**2 + y_centered**2) / (2 * sigma**2)
+    kernel = (1 / (2 * torch.pi * ksigma**2)) * torch.exp(
+        -(x_centered**2 + y_centered**2) / (2 * ksigma**2)
     )
     kernel = kernel / torch.sum(kernel)
 
