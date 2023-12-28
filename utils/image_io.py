@@ -7,18 +7,32 @@ from torchvision import transforms
 
 IMAGE_FILE_TYPES = (".jpg", ".jpeg", ".png", ".bmp", ".tif")
 
-def read_image(file_name, directory_path="data", data_format="torch", out_size=None, grayscale=False):
+
+def read_image(
+    file_name,
+    directory_path="data",
+    data_format="torch",
+    out_size=None,
+    grayscale=False,
+):
     assert file_name.lower().endswith(
         IMAGE_FILE_TYPES
     ), f"File name must end with one of the following: {IMAGE_FILE_TYPES}"
-    assert data_format.lower() in {"tensor", "torch", "numpy", "np", "pil", "pillow"}, "Data format must be valid!"
+    assert data_format.lower() in {
+        "tensor",
+        "torch",
+        "numpy",
+        "np",
+        "pil",
+        "pillow",
+    }, "Data format must be valid!"
 
     parent_directory = os.path.dirname(os.getcwd())
     image_path = os.path.join(parent_directory, directory_path, file_name)
     image = adjust_pillow_image(Image.open(image_path))
-    
+
     if grayscale:
-        image = image.convert('L')
+        image = image.convert("L")
 
     if out_size is not None:
         image = image.resize(out_size)
@@ -34,7 +48,12 @@ def read_image(file_name, directory_path="data", data_format="torch", out_size=N
     return converted_image
 
 
-def read_all_images(directory_path="data", data_format="torch", out_size=None):
+def read_all_images(
+    directory_path="data", data_format="torch", out_size=None, grayscale=False
+):
+    parent_directory = os.path.dirname(os.getcwd())
+    directory_path = os.path.join(parent_directory, directory_path)
+    
     image_paths = []
     file_names = []
     for root, _, files in os.walk(directory_path):
@@ -43,11 +62,25 @@ def read_all_images(directory_path="data", data_format="torch", out_size=None):
                 image_path = os.path.join(root, file)
                 image_paths.append(image_path)
                 file_names.append(file)
-
+    
     images = []
     for image_path in image_paths:
-        images.append(read_image(image_path, "", data_format=data_format, out_size=out_size))
+        images.append(
+            read_image(
+                image_path,
+                "",
+                data_format=data_format,
+                out_size=out_size,
+                grayscale=grayscale,
+            )
+        )
 
+    match data_format:
+        case "torch" | "tensor":
+            images = torch.stack(images, dim=0)
+        case "numpy" | "np":
+            images = np.stack(images, axis=0)
+    
     return images, file_names
 
 
@@ -85,6 +118,7 @@ def normalize_image(image):
 
     return (image - min_val) / (max_val - min_val)
 
+
 def adjust_pillow_image(image):
     exif = image._getexif()
     if exif:
@@ -92,7 +126,7 @@ def adjust_pillow_image(image):
         if orientation_tag in exif:
             orientation = exif[orientation_tag]
 
-            if orientation == 3: 
+            if orientation == 3:
                 image = image.rotate(180)
             elif orientation == 6:
                 image = image.rotate(-90, expand=True)
