@@ -1,8 +1,6 @@
 import torch
 import numpy as np
 
-import matplotlib.pyplot as plt
-
 from tqdm import tqdm
 from scipy.signal import convolve2d
 from torch.nn.functional import conv2d
