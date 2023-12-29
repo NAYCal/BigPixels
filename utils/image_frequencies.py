@@ -12,6 +12,7 @@ from image_math import numpy_gaussian_kernel, tensor_gaussian_kernel
 DEFAULT_KERNEL_SIZE = 10
 DEFAULT_KERNEL_SIGMA = 10
 
+
 def finite_difference(
     image,
     reduce_noise=True,
@@ -46,7 +47,12 @@ def finite_difference(
 
 
 def numpy_finite_difference(
-    image, reduce_noise=True, out_grayscale=True, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, threshold=None
+    image,
+    reduce_noise=True,
+    out_grayscale=True,
+    ksize=DEFAULT_KERNEL_SIZE,
+    ksigma=DEFAULT_KERNEL_SIGMA,
+    threshold=None,
 ):
     cov = lambda img, kernel: convolve2d(
         img, kernel, mode="same", boundary="fill", fillvalue=0
@@ -143,7 +149,9 @@ def tensor_finite_difference(
     )
 
 
-def image_blurr(image, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu"):
+def image_blurr(
+    image, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu"
+):
     match type(image):
         case np.ndarray:
             return numpy_image_blurr(image=image, ksize=ksize, ksigma=ksigma)
@@ -157,7 +165,6 @@ def image_blurr(image, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, d
 
 def numpy_image_blurr(image, ksize=DEFAULT_KERNEL_SIZE, ksigma=30):
     kernel = numpy_gaussian_kernel(ksize=ksize, ksigma=ksigma)
-
     cov = lambda img: convolve2d(img, kernel, mode="same", boundary="fill", fillvalue=0)
 
     match len(image.shape):
@@ -181,7 +188,9 @@ def numpy_image_blurr(image, ksize=DEFAULT_KERNEL_SIZE, ksigma=30):
             raise ValueError("Image must be a 2D object!")
 
 
-def tensor_image_blurr(image, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu"):
+def tensor_image_blurr(
+    image, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu"
+):
     image = image.to(device)
     original_shape = image.shape
 
@@ -219,7 +228,9 @@ def image_sharpen(image, alpha=1, ksize=DEFAULT_KERNEL_SIZE, ksigma=30, device="
             raise TypeError("Image type not supported!")
 
 
-def numpy_image_sharpen(image, alpha=1, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA):
+def numpy_image_sharpen(
+    image, alpha=1, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA
+):
     gaussian_kernel = numpy_gaussian_kernel(ksize=ksize, ksigma=ksigma)
     center_y, center_x = gaussian_kernel.shape[0] // 2, gaussian_kernel.shape[1] // 2
     unit_impulse = np.zeros_like(gaussian_kernel)
@@ -250,7 +261,9 @@ def numpy_image_sharpen(image, alpha=1, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAUL
             raise ValueError("Image must be a 2D object!")
 
 
-def tensor_image_sharpen(image, alpha=1, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu"):
+def tensor_image_sharpen(
+    image, alpha=1, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu"
+):
     image = image.to(device)
     original_shape = image.shape
 
@@ -277,22 +290,32 @@ def tensor_image_sharpen(image, alpha=1, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAU
     return conv2d(image, sharpen_kernel, padding="same").view(original_shape)
 
 
-def gaussian_stack(image, depth=5, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu"):
+def gaussian_stack(
+    image, depth=5, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu", is_batch_memory=False
+):
     assert (
         type(image) is np.ndarray or type(image) is torch.Tensor
     ), "Only tensor/numpy ndarry objects are supported!"
+    image = image.to(device) if isinstance(image, torch.Tensor) and is_batch_memory else image
     g_stack = [image]
-
     curr = image
     for _ in tqdm(range(depth - 1)):
         curr = image_blurr(curr, ksize=ksize, ksigma=ksigma, device=device)
+        curr = curr.to('cpu') if not is_batch_memory and isinstance(image, torch.Tensor) else curr
         g_stack.append(curr)
 
-    match type(image):
-        case np.ndarray:
-            return np.stack(g_stack, axis=1)
-        case torch.Tensor:
-            return torch.stack(g_stack, dim=1)
+    match (len(image.shape)):
+        case 2 | 3:
+            return (
+                torch.stack(g_stack, dim=0).to(device)
+                if isinstance(image, torch.Tensor)
+                else np.stack(g_stack, axis=0)
+            )
+        case 4:
+            return (
+                torch.stack(g_stack, dim=1).to(device)
+                if isinstance(image, torch.Tensor)
+                else np.stack(g_stack, axis=1)
+            )
         case _:
-            raise TypeError("Unknown type error!")
-
+            raise ValueError("Image must be a 2D object!")
