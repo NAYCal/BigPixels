@@ -20,8 +20,8 @@ def finite_difference(
     ksigma=DEFAULT_KERNEL_SIGMA,
     device="cpu",
 ):
-    assert (
-        isinstance(image, np.ndarray) or isinstance(image, torch.Tensor)
+    assert isinstance(image, np.ndarray) or isinstance(
+        image, torch.Tensor
     ), "Only tensor/numpy ndarry objects are supported!"
     match type(image):
         case np.ndarray:
@@ -153,8 +153,8 @@ def tensor_finite_difference(
 def image_blurr(
     image, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu"
 ):
-    assert (
-        isinstance(image, np.ndarray) or isinstance(image, torch.Tensor)
+    assert isinstance(image, np.ndarray) or isinstance(
+        image, torch.Tensor
     ), "Only tensor/numpy ndarry objects are supported!"
     match type(image):
         case np.ndarray:
@@ -220,7 +220,9 @@ def tensor_image_blurr(
     return normalize_image(conv2d(image, kernel, padding="same").view(original_shape))
 
 
-def image_sharpen(image, alpha=1, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu"):
+def image_sharpen(
+    image, alpha=1, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu"
+):
     match type(image):
         case np.ndarray:
             return numpy_image_sharpen(image, alpha=alpha, ksize=ksize, ksigma=ksigma)
@@ -293,22 +295,27 @@ def tensor_image_sharpen(
 
     return conv2d(image, sharpen_kernel, padding="same").view(original_shape)
 
+
 def hybrid_images(
-    image_to_highpass, image_to_lowpass, 
+    image_to_highpass,
+    image_to_lowpass,
     ksize=DEFAULT_KERNEL_SIZE,
     ksigma=DEFAULT_KERNEL_SIGMA,
-    device='cpu'
+    device="cpu",
 ):
     assert type(image_to_highpass) == type(image_to_lowpass), "Image types must match!"
     assert image_to_highpass.shape == image_to_lowpass.shape, "Image sizes must match!"
-    highpass_image = image_to_highpass - image_blurr(image_to_highpass, ksize=ksize, ksigma=ksigma, device=device)
+    highpass_image = image_to_highpass - image_blurr(
+        image_to_highpass, ksize=ksize, ksigma=ksigma, device=device
+    )
     lowpass_image = image_blurr(image_to_lowpass)
-    
+
     if isinstance(highpass_image, torch.Tensor):
-        highpass_image = highpass_image.to('cpu')
-        lowpass_image = lowpass_image.to('cpu')
-        
+        highpass_image = highpass_image.to("cpu")
+        lowpass_image = lowpass_image.to("cpu")
+
     return highpass_image + lowpass_image
+
 
 def gaussian_stack(
     image,
@@ -318,8 +325,8 @@ def gaussian_stack(
     device="cpu",
     is_batch_memory=False,
 ):
-    assert (
-        isinstance(image, np.ndarray) or isinstance(image, torch.Tensor)
+    assert isinstance(image, np.ndarray) or isinstance(
+        image, torch.Tensor
     ), "Only tensor/numpy ndarry objects are supported!"
     image = (
         image.to(device)
@@ -362,8 +369,8 @@ def laplacian_stack(
     device="cpu",
     is_batch_memory=False,
 ):
-    assert (
-        isinstance(image, np.ndarray) or isinstance(image, torch.Tensor)
+    assert isinstance(image, np.ndarray) or isinstance(
+        image, torch.Tensor
     ), "Only tensor/numpy ndarry objects are supported!"
     g_stack = gaussian_stack(
         image,
@@ -403,8 +410,8 @@ def laplacian_stack(
 
 
 def collapse_stack(stack):
-    assert (
-        isinstance(stack, np.ndarray) or isinstance(stack, torch.Tensor)
+    assert isinstance(stack, np.ndarray) or isinstance(
+        stack, torch.Tensor
     ), "Only tensor/numpy ndarry objects are supported!"
     match (len(stack.shape)):
         case 3 | 4:
@@ -419,3 +426,37 @@ def collapse_stack(stack):
                 return stack.sum(dim=1)
         case _:
             raise ValueError("Invalid image!")
+
+
+def image_blend(
+    images,
+    masks,
+    depth=5,
+    ksize=DEFAULT_KERNEL_SIZE,
+    ksigma=DEFAULT_KERNEL_SIGMA,
+    device="cpu",
+    is_batch_memory=False,
+):
+    assert (isinstance(images, np.ndarray) or isinstance(images, torch.Tensor)) and (
+        isinstance(masks, np.ndarray) or isinstance(masks, torch.Tensor)
+    ), "Only tensor/numpy ndarry objects are supported!"
+
+    l_stack = laplacian_stack(
+        image=images,
+        depth=depth,
+        ksize=ksize,
+        ksigma=ksigma,
+        device=device,
+        is_batch_memory=is_batch_memory,
+    )
+
+    mask_stack = gaussian_stack(
+        image=masks,
+        depth=depth,
+        ksize=ksize,
+        ksigma=ksigma,
+        device=device,
+        is_batch_memory=is_batch_memory,
+    )
+
+    raise NotImplementedError("Blending not implemented yet!")
