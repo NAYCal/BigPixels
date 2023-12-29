@@ -163,7 +163,7 @@ def image_blurr(
             raise TypeError("Image type not supported!")
 
 
-def numpy_image_blurr(image, ksize=DEFAULT_KERNEL_SIZE, ksigma=30):
+def numpy_image_blurr(image, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA):
     kernel = numpy_gaussian_kernel(ksize=ksize, ksigma=ksigma)
     cov = lambda img: convolve2d(img, kernel, mode="same", boundary="fill", fillvalue=0)
 
@@ -216,7 +216,7 @@ def tensor_image_blurr(
     return normalize_image(conv2d(image, kernel, padding="same").view(original_shape))
 
 
-def image_sharpen(image, alpha=1, ksize=DEFAULT_KERNEL_SIZE, ksigma=30, device="cpu"):
+def image_sharpen(image, alpha=1, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu"):
     match type(image):
         case np.ndarray:
             return numpy_image_sharpen(image, alpha=alpha, ksize=ksize, ksigma=ksigma)
@@ -353,24 +353,49 @@ def laplacian_stack(
         device=device,
         is_batch_memory=is_batch_memory,
     )
-    
+
     if is_batch_memory and isinstance(g_stack, torch.Tensor):
-        g_stack = g_stack.to('cpu')
-        
-    match(len(g_stack.shape)):
+        g_stack = g_stack.to("cpu")
+
+    match (len(g_stack.shape)):
         case 3 | 4:
             l_stack = g_stack[:-1] - g_stack[1:]
             if isinstance(l_stack, np.ndarray):
                 l_stack = np.concatenate([l_stack, g_stack[-1][np.newaxis]], axis=0)
             else:
-                l_stack = torch.concat([l_stack, g_stack[-1].unsqueeze(0)], dim=0).to(device)
+                l_stack = torch.concat([l_stack, g_stack[-1].unsqueeze(0)], dim=0).to(
+                    device
+                )
             return l_stack
         case 5:
             l_stack = g_stack[:, :-1] - g_stack[:, 1:]
             if isinstance(l_stack, np.ndarray):
-                l_stack = np.concatenate([l_stack, g_stack[:, -1][:, np.newaxis]], axis=1)
+                l_stack = np.concatenate(
+                    [l_stack, g_stack[:, -1][:, np.newaxis]], axis=1
+                )
             else:
-                l_stack = torch.concat([l_stack, g_stack[:, -1].unsqueeze(1)], dim=1).to(device)
+                l_stack = torch.concat(
+                    [l_stack, g_stack[:, -1].unsqueeze(1)], dim=1
+                ).to(device)
             return l_stack
+        case _:
+            raise ValueError("Invalid image!")
+
+
+def collapse_stack(stack):
+    assert (
+        type(stack) is np.ndarray or type(stack) is torch.Tensor
+    ), "Only tensor/numpy ndarry objects are supported!"
+    match (len(stack.shape)):
+        case 3 | 4:
+            if isinstance(stack, np.ndarray):
+                return stack.sum(axis=0)
+            else:
+                return stack.sum(dim=0)
+        case 5:
+            if isinstance(stack, np.ndarray):
+                return stack.sum(axis=1)
+            else:
+                return stack.sum(dim=1)
         case _:
             raise ValueError("Invalid image!")
