@@ -1,2 +1,2 @@
 # Overview
-This project aims to provide functionalities to perform some computater vision/computational photography functions. Although it is true that some of these functions are better optimized by the OpenCV library, this repository attempts to offer other functions not offered. 
+This project aims to provide functionalities for performing basic tasks in computer vision and computational photography, focusing on ease of use. Most functions provided will be available for use with both Numpy and Torch data types. The hope is that this will not only be particularly helpful in creating more robust training sets for machine learning but also in furthering computer vision and computational photography work.
