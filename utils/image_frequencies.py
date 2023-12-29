@@ -20,6 +20,9 @@ def finite_difference(
     ksigma=DEFAULT_KERNEL_SIGMA,
     device="cpu",
 ):
+    assert (
+        isinstance(image, np.ndarray) or isinstance(image, torch.Tensor)
+    ), "Only tensor/numpy ndarry objects are supported!"
     match type(image):
         case np.ndarray:
             return numpy_finite_difference(
@@ -150,6 +153,9 @@ def tensor_finite_difference(
 def image_blurr(
     image, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu"
 ):
+    assert (
+        isinstance(image, np.ndarray) or isinstance(image, torch.Tensor)
+    ), "Only tensor/numpy ndarry objects are supported!"
     match type(image):
         case np.ndarray:
             return numpy_image_blurr(image=image, ksize=ksize, ksigma=ksigma)
@@ -287,6 +293,22 @@ def tensor_image_sharpen(
 
     return conv2d(image, sharpen_kernel, padding="same").view(original_shape)
 
+def hybrid_images(
+    image_to_highpass, image_to_lowpass, 
+    ksize=DEFAULT_KERNEL_SIZE,
+    ksigma=DEFAULT_KERNEL_SIGMA,
+    device='cpu'
+):
+    assert type(image_to_highpass) == type(image_to_lowpass), "Image types must match!"
+    assert image_to_highpass.shape == image_to_lowpass.shape, "Image sizes must match!"
+    highpass_image = image_to_highpass - image_blurr(image_to_highpass, ksize=ksize, ksigma=ksigma, device=device)
+    lowpass_image = image_blurr(image_to_lowpass)
+    
+    if isinstance(highpass_image, torch.Tensor):
+        highpass_image = highpass_image.to('cpu')
+        lowpass_image = lowpass_image.to('cpu')
+        
+    return highpass_image + lowpass_image
 
 def gaussian_stack(
     image,
@@ -297,7 +319,7 @@ def gaussian_stack(
     is_batch_memory=False,
 ):
     assert (
-        type(image) is np.ndarray or type(image) is torch.Tensor
+        isinstance(image, np.ndarray) or isinstance(image, torch.Tensor)
     ), "Only tensor/numpy ndarry objects are supported!"
     image = (
         image.to(device)
@@ -341,7 +363,7 @@ def laplacian_stack(
     is_batch_memory=False,
 ):
     assert (
-        type(image) is np.ndarray or type(image) is torch.Tensor
+        isinstance(image, np.ndarray) or isinstance(image, torch.Tensor)
     ), "Only tensor/numpy ndarry objects are supported!"
     g_stack = gaussian_stack(
         image,
@@ -382,7 +404,7 @@ def laplacian_stack(
 
 def collapse_stack(stack):
     assert (
-        type(stack) is np.ndarray or type(stack) is torch.Tensor
+        isinstance(stack, np.ndarray) or isinstance(stack, torch.Tensor)
     ), "Only tensor/numpy ndarry objects are supported!"
     match (len(stack.shape)):
         case 3 | 4:
