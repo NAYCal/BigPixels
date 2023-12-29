@@ -1,10 +1,16 @@
 import torch
 import numpy as np
 
+import matplotlib.pyplot as plt
+
+from tqdm import tqdm
 from scipy.signal import convolve2d
 from torch.nn.functional import conv2d
 from image_io import normalize_image
 from image_math import numpy_gaussian_kernel, tensor_gaussian_kernel
+
+DEFAULT_KERNEL_SIZE = 10
+DEFAULT_KERNEL_SIGMA = 10
 
 
 def finite_difference(
@@ -12,8 +18,8 @@ def finite_difference(
     reduce_noise=True,
     out_grayscale=True,
     threshold=None,
-    ksize=30,
-    ksigma=30,
+    ksize=DEFAULT_KERNEL_SIZE,
+    ksigma=DEFAULT_KERNEL_SIGMA,
     device="cpu",
 ):
     match type(image):
@@ -41,7 +47,12 @@ def finite_difference(
 
 
 def numpy_finite_difference(
-    image, reduce_noise=True, out_grayscale=True, ksize=30, ksigma=30, threshold=None
+    image,
+    reduce_noise=True,
+    out_grayscale=True,
+    ksize=DEFAULT_KERNEL_SIZE,
+    ksigma=DEFAULT_KERNEL_SIGMA,
+    threshold=None,
 ):
     cov = lambda img, kernel: convolve2d(
         img, kernel, mode="same", boundary="fill", fillvalue=0
@@ -86,15 +97,15 @@ def numpy_finite_difference(
             )
             return diff_images
         case _:
-            raise ValueError("Image must be a 2D object!")
+            raise ValueError("Invalid image!")
 
 
 def tensor_finite_difference(
     image,
     reduce_noise=True,
     out_grayscale=True,
-    ksize=3,
-    ksigma=2,
+    ksize=DEFAULT_KERNEL_SIZE,
+    ksigma=DEFAULT_KERNEL_SIGMA,
     threshold=None,
     device="cpu",
 ):
@@ -123,7 +134,7 @@ def tensor_finite_difference(
         case 4:
             channel_dim = 1
         case _:
-            raise ValueError("Image must be a 2D object!")
+            raise ValueError("Invalid image!")
 
     image_dx = conv2d(image, dx, padding="same")
     image_dy = conv2d(image, dy, padding="same")
@@ -138,7 +149,9 @@ def tensor_finite_difference(
     )
 
 
-def image_blurr(image, ksize=3, ksigma=2, device="cpu"):
+def image_blurr(
+    image, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu"
+):
     match type(image):
         case np.ndarray:
             return numpy_image_blurr(image=image, ksize=ksize, ksigma=ksigma)
@@ -150,9 +163,8 @@ def image_blurr(image, ksize=3, ksigma=2, device="cpu"):
             raise TypeError("Image type not supported!")
 
 
-def numpy_image_blurr(image, ksize=3, ksigma=2):
+def numpy_image_blurr(image, ksize=DEFAULT_KERNEL_SIZE, ksigma=30):
     kernel = numpy_gaussian_kernel(ksize=ksize, ksigma=ksigma)
-
     cov = lambda img: convolve2d(img, kernel, mode="same", boundary="fill", fillvalue=0)
 
     match len(image.shape):
@@ -161,7 +173,7 @@ def numpy_image_blurr(image, ksize=3, ksigma=2):
         case 3:
             channels = []
             for d in range(3):
-                channels.append(image[:, :, d])
+                channels.append(cov(image[:, :, d]))
             return normalize_image(np.stack(channels, axis=-1))
         case 4:
             diff_images = np.stack(
@@ -173,10 +185,12 @@ def numpy_image_blurr(image, ksize=3, ksigma=2):
             )
             return diff_images
         case _:
-            raise ValueError("Image must be a 2D object!")
+            raise ValueError("Invalid image!")
 
 
-def tensor_image_blurr(image, ksize=3, ksigma=2, device="cpu"):
+def tensor_image_blurr(
+    image, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu"
+):
     image = image.to(device)
     original_shape = image.shape
 
@@ -197,12 +211,12 @@ def tensor_image_blurr(image, ksize=3, ksigma=2, device="cpu"):
             height, width = image.shape[2:]
             image = image.reshape(-1, 1, height, width)
         case _:
-            raise ValueError("Image must be a 2D object!")
+            raise ValueError("Invalid image!")
 
     return normalize_image(conv2d(image, kernel, padding="same").view(original_shape))
 
 
-def image_sharpen(image, alpha=1, ksize=3, ksigma=2, device="cpu"):
+def image_sharpen(image, alpha=1, ksize=DEFAULT_KERNEL_SIZE, ksigma=30, device="cpu"):
     match type(image):
         case np.ndarray:
             return numpy_image_sharpen(image, alpha=alpha, ksize=ksize, ksigma=ksigma)
@@ -214,7 +228,9 @@ def image_sharpen(image, alpha=1, ksize=3, ksigma=2, device="cpu"):
             raise TypeError("Image type not supported!")
 
 
-def numpy_image_sharpen(image, alpha=1, ksize=3, ksigma=2):
+def numpy_image_sharpen(
+    image, alpha=1, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA
+):
     gaussian_kernel = numpy_gaussian_kernel(ksize=ksize, ksigma=ksigma)
     center_y, center_x = gaussian_kernel.shape[0] // 2, gaussian_kernel.shape[1] // 2
     unit_impulse = np.zeros_like(gaussian_kernel)
@@ -242,10 +258,12 @@ def numpy_image_sharpen(image, alpha=1, ksize=3, ksigma=2):
                 axis=0,
             )
         case _:
-            raise ValueError("Image must be a 2D object!")
+            raise ValueError("Invalid image!")
 
 
-def tensor_image_sharpen(image, alpha=1, ksize=3, ksigma=2, device="cpu"):
+def tensor_image_sharpen(
+    image, alpha=1, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu"
+):
     image = image.to(device)
     original_shape = image.shape
 
@@ -267,6 +285,92 @@ def tensor_image_sharpen(image, alpha=1, ksize=3, ksigma=2, device="cpu"):
             height, width = image.shape[2:]
             image = image.reshape(-1, 1, height, width)
         case _:
-            raise ValueError("Image must be a 2D object!")
+            raise ValueError("Invalid image!")
 
     return conv2d(image, sharpen_kernel, padding="same").view(original_shape)
+
+
+def gaussian_stack(
+    image,
+    depth=5,
+    ksize=DEFAULT_KERNEL_SIZE,
+    ksigma=DEFAULT_KERNEL_SIGMA,
+    device="cpu",
+    is_batch_memory=False,
+):
+    assert (
+        type(image) is np.ndarray or type(image) is torch.Tensor
+    ), "Only tensor/numpy ndarry objects are supported!"
+    image = (
+        image.to(device)
+        if isinstance(image, torch.Tensor) and is_batch_memory
+        else image
+    )
+    g_stack = [image]
+    curr = image
+    for _ in tqdm(range(depth - 1)):
+        curr = image_blurr(curr, ksize=ksize, ksigma=ksigma, device=device)
+        curr = (
+            curr.to("cpu")
+            if not is_batch_memory and isinstance(image, torch.Tensor)
+            else curr
+        )
+        g_stack.append(curr)
+
+    match (len(image.shape)):
+        case 2 | 3:
+            return (
+                torch.stack(g_stack, dim=0).to(device)
+                if isinstance(image, torch.Tensor)
+                else np.stack(g_stack, axis=0)
+            )
+        case 4:
+            return (
+                torch.stack(g_stack, dim=1).to(device)
+                if isinstance(image, torch.Tensor)
+                else np.stack(g_stack, axis=1)
+            )
+        case _:
+            raise ValueError("Invalid image!")
+
+
+def laplacian_stack(
+    image,
+    depth=5,
+    ksize=DEFAULT_KERNEL_SIZE,
+    ksigma=DEFAULT_KERNEL_SIGMA,
+    device="cpu",
+    is_batch_memory=False,
+):
+    assert (
+        type(image) is np.ndarray or type(image) is torch.Tensor
+    ), "Only tensor/numpy ndarry objects are supported!"
+    g_stack = gaussian_stack(
+        image,
+        depth=depth,
+        ksize=ksize,
+        ksigma=ksigma,
+        device=device,
+        is_batch_memory=is_batch_memory,
+    )
+    
+    if is_batch_memory and isinstance(g_stack, torch.Tensor):
+        g_stack = g_stack.to('cpu')
+        
+    match(len(g_stack.shape)):
+        case 3 | 4:
+            l_stack = g_stack[:-1] - g_stack[1:]
+            if isinstance(l_stack, np.ndarray):
+                l_stack = np.concatenate([l_stack, g_stack[-1][np.newaxis]], axis=0)
+            else:
+                l_stack = torch.concat([l_stack, g_stack[-1].unsqueeze(0)], dim=0).to(device)
+            return l_stack
+        case 5:
+            l_stack = g_stack[:, :-1] - g_stack[:, 1:]
+            if isinstance(l_stack, np.ndarray):
+                l_stack = np.concatenate([l_stack, g_stack[:, -1][:, np.newaxis]], axis=1)
+            else:
+                l_stack = torch.concat([l_stack, g_stack[:, -1].unsqueeze(1)], dim=1).to(device)
+            return l_stack
+        case _:
+            raise ValueError("Invalid image!")
