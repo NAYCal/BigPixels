@@ -97,7 +97,7 @@ def numpy_finite_difference(
             )
             return diff_images
         case _:
-            raise ValueError("Image must be a 2D object!")
+            raise ValueError("Invalid image!")
 
 
 def tensor_finite_difference(
@@ -134,7 +134,7 @@ def tensor_finite_difference(
         case 4:
             channel_dim = 1
         case _:
-            raise ValueError("Image must be a 2D object!")
+            raise ValueError("Invalid image!")
 
     image_dx = conv2d(image, dx, padding="same")
     image_dy = conv2d(image, dy, padding="same")
@@ -185,7 +185,7 @@ def numpy_image_blurr(image, ksize=DEFAULT_KERNEL_SIZE, ksigma=30):
             )
             return diff_images
         case _:
-            raise ValueError("Image must be a 2D object!")
+            raise ValueError("Invalid image!")
 
 
 def tensor_image_blurr(
@@ -211,7 +211,7 @@ def tensor_image_blurr(
             height, width = image.shape[2:]
             image = image.reshape(-1, 1, height, width)
         case _:
-            raise ValueError("Image must be a 2D object!")
+            raise ValueError("Invalid image!")
 
     return normalize_image(conv2d(image, kernel, padding="same").view(original_shape))
 
@@ -258,7 +258,7 @@ def numpy_image_sharpen(
                 axis=0,
             )
         case _:
-            raise ValueError("Image must be a 2D object!")
+            raise ValueError("Invalid image!")
 
 
 def tensor_image_sharpen(
@@ -285,23 +285,36 @@ def tensor_image_sharpen(
             height, width = image.shape[2:]
             image = image.reshape(-1, 1, height, width)
         case _:
-            raise ValueError("Image must be a 2D object!")
+            raise ValueError("Invalid image!")
 
     return conv2d(image, sharpen_kernel, padding="same").view(original_shape)
 
 
 def gaussian_stack(
-    image, depth=5, ksize=DEFAULT_KERNEL_SIZE, ksigma=DEFAULT_KERNEL_SIGMA, device="cpu", is_batch_memory=False
+    image,
+    depth=5,
+    ksize=DEFAULT_KERNEL_SIZE,
+    ksigma=DEFAULT_KERNEL_SIGMA,
+    device="cpu",
+    is_batch_memory=False,
 ):
     assert (
         type(image) is np.ndarray or type(image) is torch.Tensor
     ), "Only tensor/numpy ndarry objects are supported!"
-    image = image.to(device) if isinstance(image, torch.Tensor) and is_batch_memory else image
+    image = (
+        image.to(device)
+        if isinstance(image, torch.Tensor) and is_batch_memory
+        else image
+    )
     g_stack = [image]
     curr = image
     for _ in tqdm(range(depth - 1)):
         curr = image_blurr(curr, ksize=ksize, ksigma=ksigma, device=device)
-        curr = curr.to('cpu') if not is_batch_memory and isinstance(image, torch.Tensor) else curr
+        curr = (
+            curr.to("cpu")
+            if not is_batch_memory and isinstance(image, torch.Tensor)
+            else curr
+        )
         g_stack.append(curr)
 
     match (len(image.shape)):
@@ -318,4 +331,46 @@ def gaussian_stack(
                 else np.stack(g_stack, axis=1)
             )
         case _:
-            raise ValueError("Image must be a 2D object!")
+            raise ValueError("Invalid image!")
+
+
+def laplacian_stack(
+    image,
+    depth=5,
+    ksize=DEFAULT_KERNEL_SIZE,
+    ksigma=DEFAULT_KERNEL_SIGMA,
+    device="cpu",
+    is_batch_memory=False,
+):
+    assert (
+        type(image) is np.ndarray or type(image) is torch.Tensor
+    ), "Only tensor/numpy ndarry objects are supported!"
+    g_stack = gaussian_stack(
+        image,
+        depth=depth,
+        ksize=ksize,
+        ksigma=ksigma,
+        device=device,
+        is_batch_memory=is_batch_memory,
+    )
+    
+    if is_batch_memory and isinstance(g_stack, torch.Tensor):
+        g_stack = g_stack.to('cpu')
+        
+    match(len(g_stack.shape)):
+        case 3 | 4:
+            l_stack = g_stack[:-1] - g_stack[1:]
+            if isinstance(l_stack, np.ndarray):
+                l_stack = np.concatenate([l_stack, g_stack[-1][np.newaxis]], axis=0)
+            else:
+                l_stack = torch.concat([l_stack, g_stack[-1].unsqueeze(0)], dim=0).to(device)
+            return l_stack
+        case 5:
+            l_stack = g_stack[:, :-1] - g_stack[:, 1:]
+            if isinstance(l_stack, np.ndarray):
+                l_stack = np.concatenate([l_stack, g_stack[:, -1][:, np.newaxis]], axis=1)
+            else:
+                l_stack = torch.concat([l_stack, g_stack[:, -1].unsqueeze(1)], dim=1).to(device)
+            return l_stack
+        case _:
+            raise ValueError("Invalid image!")
