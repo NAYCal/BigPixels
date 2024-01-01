@@ -420,12 +420,17 @@ def image_blend(
     device="cpu",
     is_batch_memory=False,
 ):
-    if not (isinstance(images, (np.ndarray, torch.Tensor)) and isinstance(masks, (np.ndarray, torch.Tensor))):
+    if not (
+        isinstance(images, (np.ndarray, torch.Tensor))
+        and isinstance(masks, (np.ndarray, torch.Tensor))
+    ):
         raise TypeError(SUPPORTED_IMAGE_TYPE_MSG)
 
     if type(images) != type(masks):
-        raise TypeError(f"Both images and masks must have the same type! Images: {type(images)}, Masks: {type(masks)}")
-    
+        raise TypeError(
+            f"Both images and masks must have the same type! Images: {type(images)}, Masks: {type(masks)}"
+        )
+
     if len(images.shape) != 4 or len(masks.shape) != 4:
         raise ValueError(f"Both images and masks must have (N, Image.shape) shapes!")
 
