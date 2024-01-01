@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 from torchvision import transforms
 
-IMAGE_FILE_TYPES = (".jpg", ".jpeg", ".png", ".bmp", ".tif")
+SUPPORTED_IMAGE_FILE_TYPES = (".jpg", ".jpeg", ".png", ".bmp", ".tif")
 
 
 def read_image(
@@ -16,8 +16,8 @@ def read_image(
     grayscale=False,
 ):
     assert file_name.lower().endswith(
-        IMAGE_FILE_TYPES
-    ), f"File name must end with one of the following: {IMAGE_FILE_TYPES}"
+        SUPPORTED_IMAGE_FILE_TYPES
+    ), f"File name must end with one of the following: {SUPPORTED_IMAGE_FILE_TYPES}"
     assert data_format.lower() in {
         "tensor",
         "torch",
@@ -58,7 +58,7 @@ def read_all_images(
     file_names = []
     for root, _, files in os.walk(directory_path):
         for file in files:
-            if file.lower().endswith(IMAGE_FILE_TYPES):
+            if file.lower().endswith(SUPPORTED_IMAGE_FILE_TYPES):
                 image_path = os.path.join(root, file)
                 image_paths.append(image_path)
                 file_names.append(file)
@@ -86,8 +86,8 @@ def read_all_images(
 
 def save_image(img_rep, file_name, directory_path="out", out_size=None):
     assert file_name.lower().endswith(
-        IMAGE_FILE_TYPES
-    ), f"File name must end with one of the following: {IMAGE_FILE_TYPES}"
+        SUPPORTED_IMAGE_FILE_TYPES
+    ), f"File name must end with one of the following: {SUPPORTED_IMAGE_FILE_TYPES}"
     os.makedirs(directory_path, exist_ok=True)
     save_path = os.path.join(directory_path, file_name)
 
