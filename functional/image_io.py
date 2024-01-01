@@ -53,7 +53,7 @@ def read_all_images(
 ):
     parent_directory = os.path.dirname(os.getcwd())
     directory_path = os.path.join(parent_directory, directory_path)
-    
+
     image_paths = []
     file_names = []
     for root, _, files in os.walk(directory_path):
@@ -62,7 +62,7 @@ def read_all_images(
                 image_path = os.path.join(root, file)
                 image_paths.append(image_path)
                 file_names.append(file)
-    
+
     images = []
     for image_path in image_paths:
         images.append(
@@ -80,7 +80,7 @@ def read_all_images(
             images = torch.stack(images, dim=0)
         case "numpy" | "np":
             images = np.stack(images, axis=0)
-    
+
     return images, file_names
 
 

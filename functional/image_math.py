@@ -6,7 +6,9 @@ import torch.nn.functional as F
 def numpy_gaussian_kernel(ksize=3, ksigma=2):
     kernel = np.fromfunction(
         lambda x, y: (1 / (2 * np.pi * ksigma**2))
-        * np.exp(-((x - (ksize // 2)) ** 2 + (y - (ksize // 2)) ** 2) / (2 * ksigma**2)),
+        * np.exp(
+            -((x - (ksize // 2)) ** 2 + (y - (ksize // 2)) ** 2) / (2 * ksigma**2)
+        ),
         (ksize, ksize),
     )
     return kernel / np.sum(kernel)
@@ -23,6 +25,7 @@ def tensor_gaussian_kernel(ksize=3, ksigma=2):
     kernel = kernel / torch.sum(kernel)
 
     return kernel
+
 
 def naive_ssd(arr1, arr2):
     return ((arr1 - arr2) ** 2).sum()
