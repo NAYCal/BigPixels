@@ -4,7 +4,7 @@ import numpy as np
 from scipy import signal
 
 from tqdm import tqdm
-from utils.image_math import ssd, numpy_gaussian_kernel
+from functional.image_math import ssd, numpy_gaussian_kernel
 
 
 class GlassPlateImages:
