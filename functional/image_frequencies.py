@@ -101,7 +101,7 @@ def numpy_finite_difference(
         case 3:
             channels_dx = []
             channels_dy = []
-            for d in range(3):
+            for d in range(image.shape[2]):
                 channels_dx.append(cov(image[:, :, d], dx))
                 channels_dy.append(cov(image[:, :, d], dy))
                 

@@ -42,6 +42,8 @@ def read_image(
             converted_image = transforms.ToTensor()(image)
         case "numpy" | "np":
             converted_image = normalize_image(np.array(image).astype(np.float32))
+            if grayscale: 
+                converted_image = np.expand_dims(converted_image, axis=-1)
         case "pil" | "pillow":
             converted_image = image
 
