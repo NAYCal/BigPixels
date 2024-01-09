@@ -7,6 +7,8 @@ from torch.nn.functional import conv2d
 from image_io import normalize_image
 from image_math import numpy_gaussian_kernel, tensor_gaussian_kernel
 
+import matplotlib.pyplot as plt
+
 DEFAULT_KERNEL_SIZE = 10
 DEFAULT_KERNEL_SIGMA = 10
 
@@ -15,11 +17,39 @@ NUMPY_IMAGE_SHAPE_ERROR_MSG = "Invalid image shape! Images must be in the format
 TENSOR_IMAGE_SHAPE_ERROR_MSG = "Invalid image shape! Images must be in the format of either (N, C, H, W) or (C, H, W)"
 
 
+def highlight_edges(
+    image,
+    reduce_noise=True,
+    out_grayscale=True,
+    binary_threshold=None,
+    ksize=DEFAULT_KERNEL_SIZE,
+    ksigma=DEFAULT_KERNEL_SIGMA,
+    device="cpu",
+):
+    assert isinstance(image, np.ndarray) or isinstance(
+        image, torch.Tensor
+    ), SUPPORTED_IMAGE_TYPE_MSG
+    
+    ixx, iyy = finite_difference(
+        image=image,
+        reduce_noise=reduce_noise,
+        out_grayscale=out_grayscale,
+        binary_threshold=binary_threshold,
+        ksize=ksize,
+        ksigma=ksigma,
+        device=device,
+    )
+    
+    if isinstance(image, np.ndarray):
+        return normalize_image(np.sqrt(ixx ** 2 + iyy ** 2))
+    return normalize_image(torch.sqrt(ixx ** 2 + iyy ** 2))
+            
+
 def finite_difference(
     image,
     reduce_noise=True,
     out_grayscale=True,
-    threshold=None,
+    binary_threshold=None,
     ksize=DEFAULT_KERNEL_SIZE,
     ksigma=DEFAULT_KERNEL_SIGMA,
     device="cpu",
@@ -32,7 +62,7 @@ def finite_difference(
                 out_grayscale=out_grayscale,
                 ksize=ksize,
                 ksigma=ksigma,
-                threshold=threshold,
+                binary_threshold=binary_threshold,
             )
         case torch.Tensor:
             return tensor_finite_difference(
@@ -41,7 +71,7 @@ def finite_difference(
                 out_grayscale=out_grayscale,
                 ksize=ksize,
                 ksigma=ksigma,
-                threshold=threshold,
+                binary_threshold=binary_threshold,
                 device=device,
             )
         case _:
@@ -54,7 +84,7 @@ def numpy_finite_difference(
     out_grayscale=True,
     ksize=DEFAULT_KERNEL_SIZE,
     ksigma=DEFAULT_KERNEL_SIGMA,
-    threshold=None,
+    binary_threshold=None,
 ):
     cov = lambda img, kernel: convolve2d(
         img, kernel, mode="same", boundary="fill", fillvalue=0
@@ -69,28 +99,35 @@ def numpy_finite_difference(
 
     match len(image.shape):
         case 3:
-            channels = []
+            channels_dx = []
+            channels_dy = []
             for d in range(3):
-                channel_dx = cov(image[:, :, d], dx)
-                channel_dy = cov(image[:, :, d], dy)
-                channels.append(np.sqrt((channel_dx**2) + (channel_dy**2)))
-
-            derived = np.stack(channels, axis=-1)
-            derived = np.mean(derived, axis=2) if out_grayscale else derived
-            return normalize_image(
-                (derived > threshold).astype(np.float32) if threshold else derived
-            )
+                channels_dx.append(cov(image[:, :, d], dx))
+                channels_dy.append(cov(image[:, :, d], dy))
+                
+            ixx = np.stack(channels_dx, axis=-1)
+            iyy = np.stack(channels_dy, axis=-1)
+            
+            ixx = np.mean(ixx, axis=-1) if out_grayscale else ixx
+            iyy = np.mean(iyy, axis=-1) if out_grayscale else iyy
+            
+            ixx = (ixx > binary_threshold).astype(np.float32) if binary_threshold else ixx
+            iyy = (iyy > binary_threshold).astype(np.float32) if binary_threshold else iyy
+            return ixx, iyy
         case 4:
-            diff_images = np.stack(
-                [
-                    numpy_finite_difference(
-                        image[i], reduce_noise, out_grayscale, threshold
-                    )
-                    for i in image.shape[0]
-                ],
-                axis=0,
-            )
-            return diff_images
+            ixx_list = []
+            iyy_list = []
+            for img in image:
+                ixx, iyy = numpy_finite_difference(
+                    image=img,
+                    reduce_noise=reduce_noise,
+                    out_grayscale=out_grayscale,
+                    binary_threshold=binary_threshold
+                )
+                ixx_list.append(ixx)
+                iyy_list.append(iyy)
+            
+            return np.stack(ixx_list, axis=0), np.stack(iyy_list, axis=0)
         case _:
             raise ValueError(NUMPY_IMAGE_SHAPE_ERROR_MSG)
 
@@ -101,7 +138,7 @@ def tensor_finite_difference(
     out_grayscale=True,
     ksize=DEFAULT_KERNEL_SIZE,
     ksigma=DEFAULT_KERNEL_SIGMA,
-    threshold=None,
+    binary_threshold=None,
     device="cpu",
 ):
     original_shape = image.shape
@@ -126,20 +163,23 @@ def tensor_finite_difference(
             image = image.reshape(-1, 1, height, width)
         case 4:
             channel_dim = 1
+            height, width = image.shape[2:]
+            image = image.reshape(-1, 1, height, width)
         case _:
             raise ValueError(TENSOR_IMAGE_SHAPE_ERROR_MSG)
-
-    image_dx = conv2d(image, dx, padding="same")
-    image_dy = conv2d(image, dy, padding="same")
-    derived = torch.sqrt(image_dx**2 + image_dy**2)
-    derived = derived.view(original_shape)
+        
+    ixx = conv2d(image, dx, padding="same").view(original_shape)
+    iyy = conv2d(image, dy, padding="same").view(original_shape)
 
     if channel_dim is not None and out_grayscale:
-        derived = torch.mean(derived, dim=channel_dim)
+        ixx = torch.mean(ixx, dim=channel_dim)
+        iyy = torch.mean(iyy, dim=channel_dim)
+        
+    if binary_threshold:
+        ixx = (ixx > binary_threshold).to(torch.float32)
+        iyy = (iyy > binary_threshold).to(torch.float32)
 
-    return normalize_image(
-        (derived > threshold).to(torch.float32) if threshold else derived
-    )
+    return ixx, iyy
 
 
 def image_blurr(

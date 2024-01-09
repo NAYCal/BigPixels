@@ -1,10 +1,10 @@
 os
 sys
-matplotlib
+tqdm
 torch
 numpy
-tqdm
 scipy
 Pillow
-torchvision
 warnings
+torchvision
+matplotlib
